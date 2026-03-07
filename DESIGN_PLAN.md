@@ -1,8 +1,8 @@
 # Cosmic Potions Lab — Implementation Plan
 
-A space-themed potion crafting API built in Go, with a React frontend demo on lixie.art. You're a space alchemist brewing potions from ingredients harvested across the galaxy. Combine ingredients to brew potions — some combinations synergize, some are volatile.
+A space-themed potion crafting game built in Go, with a React frontend on lixie.art. You're a space alchemist brewing potions from ingredients harvested across the galaxy. Combine ingredients to brew potions — some combinations synergize, some are volatile. Your goal: fill the **Cosmic Alchemist's Codex** by discovering every potion effect in the universe.
 
-**Purpose:** Demonstrate Go proficiency, clean architecture, and fast language ramp-up 
+**Purpose:** Demonstrate Go proficiency, clean architecture, and fast language ramp-up
 
 **Repos:**
 - `cosmic-potions` — Standalone Go repo (new GitHub repo: `LilyEssence/cosmic-potions`)
@@ -36,6 +36,61 @@ An attempt to make a potion.
 Defines how two elements react.
 - Element1, Element2, Result (synergy, neutral, volatile)
 - Volatile combos have a chance of catastrophic failure. Synergies boost potency.
+
+---
+
+## Game Design: The Cosmic Alchemist's Codex
+
+### Core Loop
+
+Experiment with ingredient combinations → brew potions → discover new effects → fill the codex → become Grand Cosmic Alchemist.
+
+The codex is a collection tracker. Every possible potion effect in the universe is listed, but they start hidden ("???"). When you successfully brew a potion, the effects it produces get revealed in your codex. The goal is to discover all of them.
+
+### Effect Tiers
+
+Effects are grouped by discovery difficulty:
+
+| Tier | Count | How to Discover |
+|------|-------|-----------------|
+| Common | ~10 | Appear in many recipes — hard to miss |
+| Uncommon | ~8 | Require specific element pairings or 3-ingredient combos |
+| Rare | ~6 | Need rare ingredients + synergy-boosted brews |
+| Legendary | ~4 | Demand mastery of volatile combos without catastrophic failure |
+
+**Total: ~28 discoverable effects.** The exact number is defined in seed data.
+
+### Discovery Mechanics
+
+- **Known recipes** are a starting point — following them guarantees certain effects
+- **Experimental brewing** (no recipe, just toss ingredients together) can discover effects that no known recipe produces
+- **Synergy combos** sometimes produce bonus effects beyond what the individual ingredients would yield
+- **Volatile combos** that succeed (risky but rewarding) can unlock legendary effects that safe combos never produce
+- **Partial successes** still reveal some effects — you don't need a perfect brew every time
+- **Catastrophic failures** reveal nothing (but are entertaining)
+
+### Win Condition
+
+**"Grand Cosmic Alchemist"** — Discover all effects in the codex. The codex page shows a progress bar (e.g., "23/28 Effects Discovered"). At 100%, a celebration screen + title.
+
+No time pressure, no lives, no fail state. Pure exploration and experimentation at your own pace.
+
+### Player State (Frontend Only)
+
+All game state lives in **localStorage** — the Go API is stateless with respect to player progress.
+
+- `discoveredEffects` — array of effect IDs + discovery timestamps
+- `brewCount` — total brews attempted
+- `successCount` / `failureCount` — brew outcome tallies
+- `codexComplete` — boolean, flipped when all effects discovered
+
+This means every visitor starts fresh (or can reset). No accounts, no server saves. The Go API just serves the data and brewing logic.
+
+### API Impact (Minimal)
+
+One new endpoint: `GET /api/effects` — returns the master list of all discoverable effects (ID + name + tier). No hints about which ingredients produce them. This tells the frontend what "100%" looks like so it can render the codex grid.
+
+The existing `POST /api/brew` response already returns effects — the frontend just needs to cross-reference against the codex.
 
 ---
 
@@ -73,6 +128,7 @@ cosmic-potions/
   - `CosmicPotionsPage.tsx` — main page / planet explorer
   - `CosmicPotionsBrewPage.tsx` — brew station
   - `CosmicPotionsIngredientPage.tsx` — ingredient browser
+  - `CosmicPotionsCodexPage.tsx` — effect codex (discovery tracker)
   - `CosmicPotionsBrewLogPage.tsx` — brew history
 - **Routes:** Public (no `ProtectedRoute`) in `packages/frontend/src/App.tsx` under `/cosmic-potions/*`
 - **Assets:** `packages/frontend/public/cosmic-potions/` for pixel art sprites
@@ -146,6 +202,7 @@ Using `chi` router. Endpoints:
 | POST | `/api/brew` | Submit ingredients, get brew result |
 | POST | `/api/brew/check` | Compatibility preview without brewing |
 | GET | `/api/brews` | Brew history (successes and catastrophic failures) |
+| GET | `/api/effects` | Master list of all discoverable effects (for codex) |
 | GET | `/api/interactions` | The element interaction matrix |
 | GET | `/api/health` | Health check |
 
@@ -207,10 +264,11 @@ In the `lixiestudios` monorepo:
 **Pages:**
 - **Planet Explorer** — cards for each planet with biome colors, click to see ingredients
 - **Ingredient Browser** — filterable grid with element color coding and rarity badges
-- **Brew Station** — select 2-4 ingredients, see compatibility preview (synergies glow green, volatile flashes red), hit "Brew" and get result (success: potion + effects, failure: fun catastrophe message)
+- **Brew Station** — select 2-4 ingredients, see compatibility preview (synergies glow green, volatile flashes red), hit "Brew" and get result (success: potion + effects, failure: fun catastrophe message). New discoveries highlighted with a "NEW!" badge.
+- **Codex** — the game's core screen. Grid of all effects: discovered ones show name + tier + discovery date, undiscovered show "???" with tier hint. Progress bar at top. Celebration state at 100%.
 - **Brew Log** — history of attempts, successes, and spectacular failures
 
-**Routes in App.tsx:** Public routes under `/cosmic-potions`, `/cosmic-potions/brew`, `/cosmic-potions/ingredients`, `/cosmic-potions/log`
+**Routes in App.tsx:** Public routes under `/cosmic-potions`, `/cosmic-potions/brew`, `/cosmic-potions/ingredients`, `/cosmic-potions/codex`, `/cosmic-potions/log`
 
 **Assets:** Colored square placeholders in `packages/frontend/public/cosmic-potions/`, upgrade to pixel art later. Potentially use pixelStickers to generate some.
 
@@ -231,6 +289,8 @@ In the `cosmic-potions` repo:
 - `go vet ./...` — no warnings
 - `curl` the deployed API endpoints manually
 - Frontend brew station works end-to-end (select ingredients → preview → brew → see result)
+- Codex updates on successful brew (new effects appear, progress bar advances)
+- Codex persists across page reloads (localStorage)
 - Deployed on Railway and accessible via lixie.art
 
 ---
@@ -240,9 +300,10 @@ In the `cosmic-potions` repo:
 Cut in this order if time gets tight:
 
 1. Drop brew log page on frontend (keep the API endpoint)
-2. Simplify frontend to just brew station + ingredient list
-3. Skip SQLite — in-memory with seed data is enough for the demo (interface still demonstrates the pattern)
-4. Skip recipe book / known recipes — focus on freeform experimental brewing
+2. Simplify codex to a plain list instead of a styled grid
+3. Simplify frontend to just brew station + codex + ingredient list
+4. Skip SQLite — in-memory with seed data is enough for the demo (interface still demonstrates the pattern)
+5. Skip recipe book / known recipes — focus on freeform experimental brewing
 
 ---
 

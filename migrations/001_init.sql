@@ -1,0 +1,3 @@
+-- SQLite schema for Cosmic Potions (Day 2 — Step 9)
+-- This file will contain the database schema when we add persistence.
+-- For now, the in-memory store with seed data is sufficient.
