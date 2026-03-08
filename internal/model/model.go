@@ -74,7 +74,7 @@ type Ingredient struct {
 	PlanetID    string   `json:"planetId"`
 	Name        string   `json:"name"`
 	Element     Element  `json:"element"`
-	Potency     int      `json:"potency"`     // 1-10
+	Potency     int      `json:"potency"` // 1-10
 	Rarity      Rarity   `json:"rarity"`
 	Description string   `json:"description"`
 	FlavorNotes []string `json:"flavorNotes"` // e.g., "bitter", "luminous", "electric"
@@ -85,11 +85,11 @@ type Ingredient struct {
 type Element string
 
 const (
-	ElementSolar      Element = "solar"
-	ElementVoid       Element = "void"
+	ElementSolar       Element = "solar"
+	ElementVoid        Element = "void"
 	ElementCrystalline Element = "crystalline"
-	ElementOrganic    Element = "organic"
-	ElementPlasma     Element = "plasma"
+	ElementOrganic     Element = "organic"
+	ElementPlasma      Element = "plasma"
 )
 
 // Rarity indicates how rare an ingredient is.
@@ -139,7 +139,7 @@ const (
 // while `*string` in Go ≈ `string | null`.
 type Brew struct {
 	ID              string     `json:"id"`
-	RecipeID        *string    `json:"recipeId"`    // nil if experimental
+	RecipeID        *string    `json:"recipeId"`        // nil if experimental
 	IngredientsUsed []string   `json:"ingredientsUsed"` // ingredient IDs
 	Result          BrewResult `json:"result"`
 	PotionName      string     `json:"potionName"`
@@ -152,8 +152,8 @@ type Brew struct {
 type BrewResult string
 
 const (
-	BrewResultSuccess            BrewResult = "success"
-	BrewResultPartial            BrewResult = "partial"
+	BrewResultSuccess             BrewResult = "success"
+	BrewResultPartial             BrewResult = "partial"
 	BrewResultCatastrophicFailure BrewResult = "catastrophic_failure"
 )
 
@@ -184,6 +184,12 @@ type IngredientFilter struct {
 	PlanetID *string  `json:"planetId,omitempty"`
 	Element  *Element `json:"element,omitempty"`
 	Rarity   *Rarity  `json:"rarity,omitempty"`
+}
+
+// RecipeFilter holds optional criteria for filtering recipe queries.
+// Follows the same pointer-for-optional pattern as IngredientFilter.
+type RecipeFilter struct {
+	Difficulty *Difficulty `json:"difficulty,omitempty"`
 }
 
 // PlanetWithIngredients bundles a planet with all its harvestable ingredients.
