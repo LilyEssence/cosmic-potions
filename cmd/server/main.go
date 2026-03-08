@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -148,6 +149,15 @@ func main() {
 		migrationsDir := os.Getenv("MIGRATIONS_DIR")
 		if migrationsDir == "" {
 			migrationsDir = "migrations"
+		}
+
+		// Ensure the parent directory exists. Railway mounts volumes at
+		// specific paths, but the directory inside the container might not
+		// exist yet on first deploy.
+		if dir := filepath.Dir(dbPath); dir != "." && dir != "" {
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				log.Fatalf("Failed to create database directory %s: %v", dir, err)
+			}
 		}
 
 		log.Printf("📦 Using SQLite store: %s", dbPath)
