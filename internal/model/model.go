@@ -157,6 +157,28 @@ const (
 	BrewResultCatastrophicFailure BrewResult = "catastrophic_failure"
 )
 
+// Effect represents a discoverable potion effect in the Cosmic Alchemist's Codex.
+// Players fill their codex by discovering effects through experimentation.
+// The Go API serves the master effect list; player progress lives in frontend localStorage.
+type Effect struct {
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	Tier        EffectTier `json:"tier"`
+	Description string     `json:"description"`
+}
+
+// EffectTier indicates how difficult an effect is to discover through brewing.
+// The tiers form a natural progression — common effects appear almost accidentally,
+// while legendary effects demand mastery of dangerous volatile element combinations.
+type EffectTier string
+
+const (
+	EffectTierCommon    EffectTier = "common"
+	EffectTierUncommon  EffectTier = "uncommon"
+	EffectTierRare      EffectTier = "rare"
+	EffectTierLegendary EffectTier = "legendary"
+)
+
 // Interaction defines how two elements react when combined.
 type Interaction struct {
 	Element1 Element           `json:"element1"`
