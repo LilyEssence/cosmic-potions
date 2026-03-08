@@ -14,5 +14,10 @@
 //	    })
 //	}
 //
-// This will be implemented in Step 7.
+// This package provides:
+//   - CORS: configurable cross-origin headers for frontend ↔ API communication
+//   - RequestLogger: request logging with method, path, status, and duration
+//
+// chi's built-in middleware.RequestID and middleware.Recoverer are used directly
+// from chi — we only write custom middleware when we need control over behavior.
 package mw

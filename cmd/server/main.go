@@ -26,6 +26,7 @@ import (
 
 	"github.com/LilyEssence/cosmic-potions/internal/brewing"
 	"github.com/LilyEssence/cosmic-potions/internal/handler"
+	mw "github.com/LilyEssence/cosmic-potions/internal/middleware"
 	"github.com/LilyEssence/cosmic-potions/internal/store"
 	"github.com/LilyEssence/cosmic-potions/seed"
 )
@@ -50,12 +51,45 @@ func main() {
 	r := chi.NewRouter()
 
 	// ── Middleware ───────────────────────────────────────────────────
-	// chi includes built-in middleware. We'll add custom middleware later,
-	// but these handle the basics for now.
+	//
+	// GO CONCEPT: Middleware Ordering
+	// Middleware runs in the order it's registered. The order matters:
+	//   1. RequestID — assigns an ID that later middleware can reference
+	//   2. RealIP — extracts the client IP before logging reads it
+	//   3. CORS — must run before any handler writes response headers
+	//   4. RequestLogger — logs after the handler completes (captures status)
+	//   5. Recoverer — catches panics from any handler, returns 500
+	//
+	// Each middleware wraps the next one like nesting dolls:
+	//   RequestID → RealIP → CORS → Logger → Recoverer → Handler
+	//
+	// GO CONCEPT: Named Import Alias
+	// We import our middleware package as `mw` to avoid collision with chi's
+	// `middleware` package. Both are in scope, distinguished by their alias:
+	//   middleware.RequestID  — from chi
+	//   mw.CORS(...)         — from our package
+
+	// chi built-ins: request ID, real IP extraction, panic recovery.
 	r.Use(middleware.RequestID) // Adds X-Request-Id header
 	r.Use(middleware.RealIP)    // Extracts real IP from proxy headers
-	r.Use(middleware.Logger)    // Logs method, path, status, duration
-	r.Use(middleware.Recoverer) // Catches panics, returns 500 instead of crashing
+
+	// Custom CORS: allows the React frontend (dev and prod) to call the API.
+	// GO CONCEPT: Configuring Middleware with Environment
+	// In production, you might read allowed origins from an env var. For now,
+	// we hardcode both the local dev server and the production domain. This
+	// keeps the game playable locally and when deployed on Railway.
+	r.Use(mw.CORS([]string{
+		"http://localhost:5173", // Vite dev server
+		"https://lixie.art",     // Production frontend
+		"https://www.lixie.art", // www variant
+	}))
+
+	// Custom request logger: method, path, status, duration.
+	// Replaces chi's middleware.Logger for consistent format and control.
+	r.Use(mw.RequestLogger)
+
+	// Panic recovery: catches panics in handlers, returns 500 instead of crashing.
+	r.Use(middleware.Recoverer)
 
 	// ── Dependencies ────────────────────────────────────────────────
 	//
