@@ -14,7 +14,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -24,6 +23,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/LilyEssence/cosmic-potions/internal/brewing"
+	"github.com/LilyEssence/cosmic-potions/internal/handler"
+	"github.com/LilyEssence/cosmic-potions/internal/store"
+	"github.com/LilyEssence/cosmic-potions/seed"
 )
 
 func main() {
@@ -53,24 +57,50 @@ func main() {
 	r.Use(middleware.Logger)    // Logs method, path, status, duration
 	r.Use(middleware.Recoverer) // Catches panics, returns 500 instead of crashing
 
-	// ── Routes (placeholder until handlers are built in Step 6) ─────
-	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		// GO CONCEPT: http.ResponseWriter
-		// Every HTTP handler in Go receives two arguments:
-		//   w http.ResponseWriter — write your response here (headers + body)
-		//   r *http.Request — the incoming request (method, URL, headers, body)
-		//
-		// This is lower-level than Express's res.json() — you set headers and
-		// write bytes directly. We'll build helper functions in the handler
-		// package to make this ergonomic.
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
+	// ── Dependencies ────────────────────────────────────────────────
+	//
+	// GO CONCEPT: Explicit Wiring (No DI Framework)
+	// Go has no Spring, no Nest.js, no dependency injection container. You
+	// create instances and pass them to constructors manually. This is more
+	// typing than @Inject() decorators, but the entire dependency graph is
+	// visible right here in main() — no magic, no surprises, no "how did
+	// this get here?" moments.
+	//
+	// The pattern is:
+	//   1. Create low-level dependencies (store, engine)
+	//   2. Pass them to higher-level consumers (handlers)
+	//   3. Register the handlers on the router
+	//
+	// Notice that memStore is assigned to four different interface fields.
+	// It's ONE struct satisfying FOUR interfaces — the handler for each
+	// resource only sees the methods it needs.
 
-		// GO CONCEPT: fmt.Fprintf
-		// fmt.Fprintf writes formatted text to any io.Writer (files, HTTP
-		// responses, buffers, etc.). It's like console.log but for any output.
-		fmt.Fprintf(w, `{"status":"ok","service":"cosmic-potions"}`)
+	// Store: in-memory, pre-loaded with seed data (planets, ingredients, recipes).
+	memStore := store.NewMemoryStore()
+
+	// Brew engine: pure business logic, no I/O. Receives the element interaction
+	// matrix, effect definitions, and a randomizer for non-deterministic outcomes.
+	engine := brewing.NewBrewEngine(
+		seed.Interactions(),
+		seed.Effects(),
+		brewing.NewDefaultRandomizer(),
+	)
+
+	// ── Routes ──────────────────────────────────────────────────────
+	// handler.RegisterRoutes creates all API handlers from the provided
+	// dependencies and mounts 12 endpoints under /api. The Deps struct
+	// makes it explicit what the handler layer requires.
+	handler.RegisterRoutes(r, handler.Deps{
+		Planets:      memStore,
+		Ingredients:  memStore,
+		Recipes:      memStore,
+		Brews:        memStore,
+		Engine:       engine,
+		Effects:      seed.Effects(),
+		Interactions: seed.InteractionsList(),
 	})
+
+	log.Printf("📋 Registered API routes: planets, ingredients, recipes, brew, effects, interactions")
 
 	// ── Create Server ───────────────────────────────────────────────
 	// GO CONCEPT: Struct Initialization
