@@ -1,0 +1,16 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+
+# NOTE: Variables must be set in Railway dashboard, not here.
+# railway.toml only supports [build] and [deploy] sections.
+# Required variables:
+#   STORE_TYPE = "sqlite"
+#   DB_PATH = "/data/cosmic-potions.db"
+# Railway auto-injects:
+#   PORT

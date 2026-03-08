@@ -1,0 +1,20 @@
+# Dependencies and build artifacts
+*.db
+*.exe
+cosmic-potions
+
+# Version control
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+
+# Documentation (not needed in image)
+README.md
+DESIGN_PLAN.md
+LICENSE
+
+# Test files (not needed in production)
+*_test.go
