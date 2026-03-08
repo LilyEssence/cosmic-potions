@@ -105,18 +105,96 @@ func main() {
 	//   2. Pass them to higher-level consumers (handlers)
 	//   3. Register the handlers on the router
 	//
-	// Notice that memStore is assigned to four different interface fields.
+	// Notice that the store is assigned to four different interface fields.
 	// It's ONE struct satisfying FOUR interfaces — the handler for each
 	// resource only sees the methods it needs.
 
-	// Store: in-memory, pre-loaded with seed data (planets, ingredients, recipes).
-	memStore := store.NewMemoryStore()
+	// ── Store Selection ─────────────────────────────────────────────
+	//
+	// GO CONCEPT: Environment-Driven Configuration
+	// STORE_TYPE toggles between "memory" (default) and "sqlite". This lets
+	// us use the in-memory store for fast local development and the SQLite
+	// store for persistent deployment on Railway. Both satisfy the same
+	// four interfaces — the rest of the code doesn't know the difference.
+	//
+	// GO CONCEPT: Interface Variables
+	// We declare the store as four interface variables, then assign the
+	// concrete implementation based on the env var. This is Go's version
+	// of runtime polymorphism — no abstract classes needed.
+	var (
+		planets     store.PlanetStore
+		ingredients store.IngredientStore
+		recipes     store.RecipeStore
+		brews       store.BrewStore
+
+		// These are loaded from seed package by default, but overridden
+		// by SQLite when using the database store.
+		interactionMap  = seed.Interactions()
+		effectList      = seed.Effects()
+		interactionList = seed.InteractionsList()
+	)
+
+	storeType := os.Getenv("STORE_TYPE")
+	switch storeType {
+	case "sqlite":
+		// ── SQLite Store ────────────────────────────────────────────
+		// DB_PATH controls where the SQLite file lives. Railway mounts
+		// persistent storage; locally, we default to a file in the project.
+		dbPath := os.Getenv("DB_PATH")
+		if dbPath == "" {
+			dbPath = "cosmic-potions.db"
+		}
+
+		migrationsDir := os.Getenv("MIGRATIONS_DIR")
+		if migrationsDir == "" {
+			migrationsDir = "migrations"
+		}
+
+		log.Printf("📦 Using SQLite store: %s", dbPath)
+		sqliteStore, err := store.NewSQLiteStore(dbPath, migrationsDir)
+		if err != nil {
+			log.Fatalf("Failed to initialize SQLite store: %v", err)
+		}
+		defer sqliteStore.Close()
+
+		planets = sqliteStore
+		ingredients = sqliteStore
+		recipes = sqliteStore
+		brews = sqliteStore
+
+		// Load interactions from the database instead of the seed package.
+		// This ensures the database is the single source of truth when using SQLite.
+		dbInteractionMap, err := sqliteStore.LoadInteractionMap()
+		if err != nil {
+			log.Fatalf("Failed to load interactions from database: %v", err)
+		}
+		interactionMap = dbInteractionMap
+
+		dbInteractionList, err := sqliteStore.LoadInteractions()
+		if err != nil {
+			log.Fatalf("Failed to load interaction list from database: %v", err)
+		}
+		interactionList = dbInteractionList
+
+		// Effects are still loaded from the seed package — they're static
+		// game data that isn't stored in SQLite (no effects table).
+
+	default:
+		// ── Memory Store ────────────────────────────────────────────
+		// Default: fast, no persistence. Pre-loaded with seed data.
+		log.Printf("📦 Using in-memory store (set STORE_TYPE=sqlite for persistence)")
+		memStore := store.NewMemoryStore()
+		planets = memStore
+		ingredients = memStore
+		recipes = memStore
+		brews = memStore
+	}
 
 	// Brew engine: pure business logic, no I/O. Receives the element interaction
 	// matrix, effect definitions, and a randomizer for non-deterministic outcomes.
 	engine := brewing.NewBrewEngine(
-		seed.Interactions(),
-		seed.Effects(),
+		interactionMap,
+		effectList,
 		brewing.NewDefaultRandomizer(),
 	)
 
@@ -125,13 +203,13 @@ func main() {
 	// dependencies and mounts 12 endpoints under /api. The Deps struct
 	// makes it explicit what the handler layer requires.
 	handler.RegisterRoutes(r, handler.Deps{
-		Planets:      memStore,
-		Ingredients:  memStore,
-		Recipes:      memStore,
-		Brews:        memStore,
+		Planets:      planets,
+		Ingredients:  ingredients,
+		Recipes:      recipes,
+		Brews:        brews,
 		Engine:       engine,
-		Effects:      seed.Effects(),
-		Interactions: seed.InteractionsList(),
+		Effects:      effectList,
+		Interactions: interactionList,
 	})
 
 	log.Printf("📋 Registered API routes: planets, ingredients, recipes, brew, effects, interactions")
